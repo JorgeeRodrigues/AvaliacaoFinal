@@ -95,7 +95,7 @@ export default function Games() {
   async function salvar() {
     if (!nome || !descricao || !preco || !plataforma) return;
 
-    // Se está editando, atualiza
+ 
     if (editandoId !== null) {
       await atualizarJogo(editandoId, nome, descricao, plataforma, preco);
       limpar();

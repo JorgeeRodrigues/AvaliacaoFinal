@@ -14,7 +14,7 @@ export default function Home() {
     >
       <Text
         style={{
-          fontSize: 30,
+          fontSize: 28,
           fontWeight: "bold",
           textAlign: "center",
         }}
