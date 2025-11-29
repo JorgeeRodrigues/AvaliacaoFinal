@@ -1,113 +1,164 @@
-import { useState } from "react";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  View,
+  StyleSheet,
   Text,
   TextInput,
-  Button,
   FlatList,
+  View,
   TouchableOpacity,
+  Button,
 } from "react-native";
+import { useState, useEffect } from "react";
 
-export default function Cadastrar() {
-  const [titulo, setTitulo] = useState("");
-  const [genero, setGenero] = useState("");
+const API_URL = "http://177.44.248.50:8080";
+
+// CRIAR
+async function criarJogo(title, description, platform, price) {
+  const slug = title.toLowerCase().replace(/\s+/g, "-");
+
+  const corpo = {
+    title,
+    slug,
+    description: description || "sem descricao",
+    developer: "desconhecido",
+    publisher: "desconhecido",
+    genre: "N/A",
+    platform,
+    release_date: "2000-01-01",
+    price: Number(price),
+  };
+
+  const resposta = await fetch(`${API_URL}/games`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo),
+  });
+
+  if (resposta.ok) return await resposta.json();
+  return null;
+}
+
+// LISTAR
+async function listarJogos() {
+  const r = await fetch(`${API_URL}/games`);
+  if (r.ok) return await r.json();
+  return [];
+}
+
+// EXCLUIR
+async function excluirJogo(id) {
+  await fetch(`${API_URL}/games/${id}`, { method: "DELETE" });
+}
+
+// EDITAR
+async function atualizarJogo(id, title, description, platform, price) {
+  const corpo = {
+    title,
+    description,
+    platform,
+    price: Number(price),
+  };
+
+  await fetch(`${API_URL}/games/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo),
+  });
+}
+
+export default function Games() {
+  const [nome, setNome] = useState("");
+  const [descricao, setDescricao] = useState("");
   const [plataforma, setPlataforma] = useState("");
-  const [ano, setAno] = useState("");
-  const [jogos, setJogos] = useState([]);
+  const [preco, setPreco] = useState("");
+  const [lista, setLista] = useState([]);
+
   const [editandoId, setEditandoId] = useState(null);
 
   function limpar() {
-    setTitulo("");
-    setGenero("");
+    setNome("");
+    setDescricao("");
     setPlataforma("");
-    setAno("");
+    setPreco("");
     setEditandoId(null);
   }
 
-  function salvar() {
-    if (!titulo || !genero || !plataforma) {
-      alert("Preencha título, gênero e plataforma.");
-      return;
-    }
+  async function carregar() {
+    const dados = await listarJogos();
+    setLista(dados);
+  }
 
-    // Editar jogo existente
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  async function salvar() {
+    if (!nome || !descricao || !preco || !plataforma) return;
+
+    // Se está editando, atualiza
     if (editandoId !== null) {
-      setJogos((lista) =>
-        lista.map((jogo) =>
-          jogo.id === editandoId
-            ? { ...jogo, titulo, genero, plataforma, ano }
-            : jogo
-        )
-      );
+      await atualizarJogo(editandoId, nome, descricao, plataforma, preco);
       limpar();
+      carregar();
       return;
     }
 
-    // Cadastrar novo
-    const novo = {
-      id: Date.now(),
-      titulo,
-      genero,
-      plataforma,
-      ano,
-    };
+    // Se não está editando, cria
+    await criarJogo(nome, descricao, plataforma, preco);
 
-    setJogos((lista) => [...lista, novo]);
     limpar();
+    carregar();
   }
 
   function editar(jogo) {
-    setTitulo(jogo.titulo);
-    setGenero(jogo.genero);
-    setPlataforma(jogo.plataforma);
-    setAno(jogo.ano);
+    setNome(jogo.title);
+    setDescricao(jogo.description);
+    setPlataforma(jogo.platform);
+    setPreco(jogo.price.toString());
     setEditandoId(jogo.id);
   }
 
-  function excluir(id) {
-    setJogos((lista) => lista.filter((jogo) => jogo.id !== id));
+  async function deletar(id) {
+    await excluirJogo(id);
+    carregar();
   }
 
   return (
-    <View style={{ flex: 1, padding: 20 }}>
-      <Text
-        style={{
-          fontSize: 26,
-          fontWeight: "bold",
-          textAlign: "center",
-          marginBottom: 20,
-        }}
-      >
-        🎮 Cadastro de Jogos
-      </Text>
+    <SafeAreaView style={estilos.container}>
+      <Text style={estilos.titulo}>🎮 Cadastro de Jogos</Text>
 
-      {/* Inputs */}
+      {/* Inputs estilizados */}
       <View style={{ gap: 10 }}>
         <TextInput
           placeholder="Título"
-          value={titulo}
-          onChangeText={setTitulo}
+          value={nome}
+          onChangeText={setNome}
           style={estilos.input}
         />
+
         <TextInput
           placeholder="Gênero"
-          value={genero}
-          onChangeText={setGenero}
-          style={estilos.input}
+          value={descricao}
+          onChangeText={setDescricao}
+          multiline
+         style={estilos.input}
         />
+
         <TextInput
           placeholder="Plataforma"
           value={plataforma}
           onChangeText={setPlataforma}
           style={estilos.input}
         />
+
         <TextInput
           placeholder="Ano de lançamento"
-          value={ano}
-          onChangeText={setAno}
+          value={preco}
+          onChangeText={setPreco}
           keyboardType="numeric"
           style={estilos.input}
         />
+
         <Button
           title={editandoId ? "Salvar Alterações" : "Cadastrar"}
           onPress={salvar}
@@ -116,38 +167,54 @@ export default function Cadastrar() {
 
       {/* Lista */}
       <FlatList
-        data={jogos}
+        data={lista}
         keyExtractor={(item) => item.id.toString()}
         style={{ marginTop: 25 }}
         renderItem={({ item }) => (
           <View style={estilos.card}>
-            <Text style={estilos.tituloCard}>{item.titulo}</Text>
-            <Text>🎯 Gênero: {item.genero}</Text>
-            <Text>🕹 Plataforma: {item.plataforma}</Text>
-            <Text>📅 Ano: {item.ano || "Não informado"}</Text>
+            <Text style={estilos.tituloCard}>{item.title}</Text>
+            <Text>🎯 Gênero: {item.platform}</Text>
+            <Text>🕹 Plataforma:  {item.price}</Text>
+            <Text>📅 Ano de lançamento:  {item.price}</Text>
+            
 
             <View style={estilos.botoes}>
               <TouchableOpacity onPress={() => editar(item)}>
-                <Text style={{ color: "blue", fontWeight: "bold" }}>Editar</Text>
+                <Text style={{ color: "blue", fontWeight: "bold" }}>
+                  Editar
+                </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity onPress={() => excluir(item.id)}>
-                <Text style={{ color: "red", fontWeight: "bold" }}>Excluir</Text>
+              <TouchableOpacity onPress={() => deletar(item.id)}>
+                <Text style={{ color: "red", fontWeight: "bold" }}>
+                  Excluir
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         )}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 
-const estilos = {
+const estilos = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: "#f2f2f2",
+  },
+  titulo: {
+    fontSize: 26,
+    fontWeight: "bold",
+    textAlign: "center",
+    marginBottom: 20,
+  },
   input: {
     borderWidth: 1,
     borderColor: "#AAA",
     padding: 10,
-    borderRadius: 8,
+    borderRadius: 18,
     backgroundColor: "#FFF",
   },
   card: {
@@ -168,4 +235,4 @@ const estilos = {
     marginTop: 10,
     justifyContent: "space-between",
   },
-};
+});
