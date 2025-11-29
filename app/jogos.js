@@ -1,9 +1,18 @@
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StyleSheet, Text, TextInput, FlatList, View, TouchableOpacity } from "react-native";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  FlatList,
+  View,
+  TouchableOpacity,
+  Button,
+} from "react-native";
 import { useState, useEffect } from "react";
 
 const API_URL = "http://177.44.248.50:8080";
 
+// CRIAR
 async function criarJogo(title, description, platform, price) {
   const slug = title.toLowerCase().replace(/\s+/g, "-");
 
@@ -16,27 +25,45 @@ async function criarJogo(title, description, platform, price) {
     genre: "N/A",
     platform,
     release_date: "2000-01-01",
-    price: Number(price)
+    price: Number(price),
   };
 
   const resposta = await fetch(`${API_URL}/games`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(corpo)
+    body: JSON.stringify(corpo),
   });
 
   if (resposta.ok) return await resposta.json();
   return null;
 }
 
+// LISTAR
 async function listarJogos() {
   const r = await fetch(`${API_URL}/games`);
   if (r.ok) return await r.json();
   return [];
 }
 
+// EXCLUIR
 async function excluirJogo(id) {
   await fetch(`${API_URL}/games/${id}`, { method: "DELETE" });
+}
+
+// EDITAR
+async function atualizarJogo(id, title, description, platform, price) {
+  const corpo = {
+    title,
+    description,
+    platform,
+    price: Number(price),
+  };
+
+  await fetch(`${API_URL}/games/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(corpo),
+  });
 }
 
 export default function Games() {
@@ -46,22 +73,49 @@ export default function Games() {
   const [preco, setPreco] = useState("");
   const [lista, setLista] = useState([]);
 
+  const [editandoId, setEditandoId] = useState(null);
+
+  function limpar() {
+    setNome("");
+    setDescricao("");
+    setPlataforma("");
+    setPreco("");
+    setEditandoId(null);
+  }
+
   async function carregar() {
     const dados = await listarJogos();
     setLista(dados);
   }
 
+  useEffect(() => {
+    carregar();
+  }, []);
+
   async function salvar() {
     if (!nome || !descricao || !preco || !plataforma) return;
 
+    // Se está editando, atualiza
+    if (editandoId !== null) {
+      await atualizarJogo(editandoId, nome, descricao, plataforma, preco);
+      limpar();
+      carregar();
+      return;
+    }
+
+    // Se não está editando, cria
     await criarJogo(nome, descricao, plataforma, preco);
 
-    setNome("");
-    setDescricao("");
-    setPlataforma("");
-    setPreco("");
-
+    limpar();
     carregar();
+  }
+
+  function editar(jogo) {
+    setNome(jogo.title);
+    setDescricao(jogo.description);
+    setPlataforma(jogo.platform);
+    setPreco(jogo.price.toString());
+    setEditandoId(jogo.id);
   }
 
   async function deletar(id) {
@@ -69,74 +123,74 @@ export default function Games() {
     carregar();
   }
 
-  useEffect(() => {
-    carregar();
-  }, []);
-
   return (
     <SafeAreaView style={estilos.container}>
-      <Text style={estilos.titulo}>Cadastro de Jogos</Text>
+      <Text style={estilos.titulo}>🎮 Cadastro de Jogos</Text>
 
-      <TextInput
-        placeholder="Nome"
-        value={nome}
-        onChangeText={setNome}
-        style={estilos.input}
-      />
+      {/* Inputs estilizados */}
+      <View style={{ gap: 10 }}>
+        <TextInput
+          placeholder="Título"
+          value={nome}
+          onChangeText={setNome}
+          style={estilos.input}
+        />
 
-      <TextInput
-        placeholder="Descrição"
-        value={descricao}
-        onChangeText={setDescricao}
-        multiline
-        style={[estilos.input, { height: 80 }]}
-      />
+        <TextInput
+          placeholder="Gênero"
+          value={descricao}
+          onChangeText={setDescricao}
+          multiline
+         style={estilos.input}
+        />
 
-      <TextInput
-        placeholder="Plataforma"
-        value={plataforma}
-        onChangeText={setPlataforma}
-        style={estilos.input}
-      />
+        <TextInput
+          placeholder="Plataforma"
+          value={plataforma}
+          onChangeText={setPlataforma}
+          style={estilos.input}
+        />
 
-      <TextInput
-        placeholder="Preço"
-        value={preco}
-        onChangeText={setPreco}
-        keyboardType="numeric"
-        style={estilos.input}
-      />
+        <TextInput
+          placeholder="Ano de lançamento"
+          value={preco}
+          onChangeText={setPreco}
+          keyboardType="numeric"
+          style={estilos.input}
+        />
 
-      <View style={estilos.botoesLinha}>
-        <TouchableOpacity style={estilos.btn} onPress={salvar}>
-          <Text style={estilos.btnTexto}>Salvar</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={estilos.btn} onPress={carregar}>
-          <Text style={estilos.btnTexto}>Atualizar</Text>
-        </TouchableOpacity>
+        <Button
+          title={editandoId ? "Salvar Alterações" : "Cadastrar"}
+          onPress={salvar}
+        />
       </View>
 
+      {/* Lista */}
       <FlatList
         data={lista}
         keyExtractor={(item) => item.id.toString()}
+        style={{ marginTop: 25 }}
         renderItem={({ item }) => (
-          <View style={estilos.item}>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.itemNome}>{item.title}</Text>
-              <Text style={estilos.itemTexto}>R$ {item.price}</Text>
-              <Text style={estilos.itemTexto}>Plataforma: {item.platform}</Text>
-              {item.description ? (
-                <Text style={estilos.itemTexto}>Descrição: {item.description}</Text>
-              ) : null}
-            </View>
+          <View style={estilos.card}>
+            <Text style={estilos.tituloCard}>{item.title}</Text>
+            <Text>🎯 Gênero: {item.platform}</Text>
+            <Text>🕹 Plataforma:  {item.price}</Text>
+            <Text>📅 Ano de lançamento:  {item.price}</Text>
+            
 
-            <TouchableOpacity
-              onPress={() => deletar(item.id)}
-              style={estilos.botaoExcluir}
-            >
-              <Text style={estilos.excluirTexto}>X</Text>
-            </TouchableOpacity>
+            <View style={estilos.botoes}>
+              <TouchableOpacity onPress={() => editar(item)}>
+                <Text style={{ color: "blue", fontWeight: "bold" }}>
+                  Editar
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => deletar(item.id)}>
+                <Text style={{ color: "red", fontWeight: "bold" }}>
+                  Excluir
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       />
@@ -148,66 +202,37 @@ const estilos = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: "#f2f2f2"
+    backgroundColor: "#f2f2f2",
   },
   titulo: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: "bold",
-    marginBottom: 15
+    textAlign: "center",
+    marginBottom: 20,
   },
   input: {
-    backgroundColor: "#fff",
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#ccc"
+    borderColor: "#AAA",
+    padding: 10,
+    borderRadius: 18,
+    backgroundColor: "#FFF",
   },
-  botoesLinha: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 15
-  },
-  btn: {
-    flex: 1,
-    backgroundColor: "#0080ff",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginHorizontal: 5
-  },
-  btnTexto: {
-    color: "#fff",
-    fontWeight: "bold"
-  },
-  item: {
-    backgroundColor: "#fff",
-    padding: 12,
+  card: {
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#DDD",
     borderRadius: 10,
-    marginBottom: 10,
-    flexDirection: "row",
-    alignItems: "center"
+    marginBottom: 12,
+    backgroundColor: "#F8F8F8",
   },
-  itemNome: {
-    fontSize: 17,
-    fontWeight: "bold",
-    marginBottom: 3
-  },
-  itemTexto: {
-    fontSize: 14
-  },
-  botaoExcluir: {
-    width: 35,
-    height: 35,
-    backgroundColor: "#0080ff",
-    borderRadius: 8,
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 10
-  },
-  excluirTexto: {
-    color: "#fff",
+  tituloCard: {
     fontSize: 18,
-    fontWeight: "bold"
-  }
+    fontWeight: "bold",
+    marginBottom: 6,
+  },
+  botoes: {
+    flexDirection: "row",
+    marginTop: 10,
+    justifyContent: "space-between",
+  },
 });
